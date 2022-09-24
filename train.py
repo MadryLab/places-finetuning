@@ -11,8 +11,7 @@ from torch.utils.data import DataLoader
 from torchvision.datasets import ImageFolder
 import torchvision.transforms as transforms
 
-'''
-'''
+# TODO: CHANGE THIS TO THE RIGHT PATH
 PLACES_DATASET = Path('/mnt/cfs/datasets/places365_standard')
 LR = 1.0
 EPOCHS = 2
@@ -32,11 +31,16 @@ def make_model():
     model = model.cuda().to(memory_format=ch.channels_last)
     return model
 
+# TODO: DELETE THIS
+IMAGENET_MEAN = np.array([0.485, 0.456, 0.406])
+IMAGENET_STD = np.array([0.229, 0.224, 0.225])
+
 def data_postprocess(x, y):
     x = x.to(device='cuda', non_blocking=True)
     x = x.to(memory_format=ch.channels_last, non_blocking=True)
     y = y.to(device='cuda', non_blocking=True)
     return x, y
+# TODO: END DELETE THIS
 
 def data_checks(x, y):
     assert x.shape == (BS, 3, 224, 224), x.shape
@@ -44,10 +48,13 @@ def data_checks(x, y):
     assert x.device != ch.device('cpu'), x.device
     assert y.device != ch.device('cpu'), y.device
 
-IMAGENET_MEAN = np.array([0.485, 0.456, 0.406])
-IMAGENET_STD = np.array([0.229, 0.224, 0.225])
 
+# TODO: turn this method into a "pass"
 def make_loaders():
+    # pass
+    # train_loader = ...
+    # val_loader = ...
+    # return train_loader, val_loader
     normalize = transforms.Normalize(mean=IMAGENET_MEAN, std=IMAGENET_STD)
 
     train_ds = ImageFolder(
@@ -76,7 +83,16 @@ def make_loaders():
     return train_loader, val_loader
 
 def main():
-     # Note: do not do anything fancy wrt data caching even tho we are doing final layer fine tuning
+    '''
+    Instructions: 
+    - Modify the following code to finetune places365 on a GPU 
+      using the data loading framework assigned to you. While you can modify all
+      the code as you see fit, you should only have to modify (a) the `make_loaders`
+      function and (b) the training loops. 
+    - You should be able to get TODO\pm 2% accuracy on the validation set with
+      the default hyperparameters and the right
+      dataloading technique.
+    '''
     model = make_model()
     model_params = model.fc.parameters()
     optimizer = ch.optim.SGD(model_params, lr=LR, weight_decay=WD) 
@@ -92,12 +108,15 @@ def main():
                                                end_factor=0, last_epoch=-1,
                                                total_iters=num_iterations)
 
+    # repeat 3x
     for epoch in range(EPOCHS):
-        # first train
+        # first train one epoch
         model.train()
+        assert train_loader is not None, 'need to define train loader!'
         for iteration, (x, y) in enumerate(tqdm(train_loader)):
-            x, y = data_postprocess(x, y)
-            assert train_loader is not None, 'need to define train loader!'
+            x, y = data_postprocess(x, y) # TODO: DELETE THIS
+
+            # you should not have to touch any of this
             with ch.cuda.amp.autocast():
                 data_checks(x, y) # you should not get an error here!
                 out = model(x)
@@ -115,10 +134,12 @@ def main():
         # then test
         model.eval()
         all_corrects = []
+        assert val_loader is not None, 'need to define val loader!'
         for iteration, (x, y) in enumerate(tqdm(val_loader)):
-            x, y = data_postprocess(x, y)
+            x, y = data_postprocess(x, y) # TODO: DELETE THIS
             data_checks(x, y) # you should not get an error here!
-            assert val_loader is not None, 'need to define val loader!'
+
+            # you should not have to touch any of this
             out = model(x)
             corrects = ch.argmax(out, dim=1) == y
             all_corrects.append(corrects)
