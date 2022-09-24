@@ -137,7 +137,7 @@ def main():
         assert val_loader is not None, 'need to define val loader!'
         for iteration, (x, y) in enumerate(tqdm(val_loader)):
             x, y = data_postprocess(x, y) # TODO: DELETE THIS
-            data_checks(x, y) # you should not get an error here!
+            # data_checks(x, y) # you should not get an error here!
 
             # you should not have to touch any of this
             out = model(x)
