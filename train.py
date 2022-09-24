@@ -30,22 +30,44 @@ def data_checks(x, y):
     assert x.device != ch.device('cpu')
     assert y.device != ch.device('cpu')
 
+IMAGENET_MEAN = np.array([0.485, 0.456, 0.406])
+IMAGENET_STD = np.array([0.229, 0.224, 0.225])
+
+def make_loaders():
+    normalize = transforms.Normalize(mean=IMAGENET_MEAN, std=IMAGENET_STD)
+
+    train_ds = ImageFolder(
+        PLACES_DATASET / 'train', 
+        transforms.Compose([
+            transforms.RandomResizedCrop(224),
+            transforms.RandomHorizontalFlip(),
+            transforms.ToTensor(),
+            normalize
+        ]))
+
+    val_ds = ImageFolder(
+        PLACES_DATASET / 'val',
+        transforms.Compose([
+                transforms.Resize(256),
+                transforms.CenterCrop(224),
+                transforms.ToTensor(),
+                normalize,
+        ]))
+
+    train_loader = DataLoader(train_ds, batch_size=BS, shuffle=True,
+                              drop_last=True, num_workers=5)
+    val_loader = DataLoader(val_ds, batch_size=BS, shuffle=False,
+                            drop_last=False, num_workers=5)
+
+    return train_loader, val_loader
+
 def main():
     model = make_model()
     model_params = model.fc.parameters()
     optimizer = ch.optim.SGD(model_params, lr=LR, weight_decay=WD) 
     losser = ch.nn.CrossEntropyLoss()
 
-    # make model loader
-    # TODO remove these defns
-    train_ds = ImageFolder(PLACES_DATASET / 'train')
-    test_ds = ImageFolder(PLACES_DATASET / 'val')
-
-    train_loader = DataLoader(training_data, batch_size=BS, shuffle=True,
-                              drop_last=True)
-    val_loader = DataLoader(test_data, batch_size=BS, shuffle=False,
-                            drop_last=False)
-
+    train_loader, val_loader = make_loaders()
     # half prec training
     scaler = torch.cuda.amp.GradScaler()
 
@@ -59,6 +81,10 @@ def main():
         # first train
         model.train()
         for iteration, (x, y) in train_loader:
+            x = x.to(device='cuda', non_blocking=True)
+            x = x.to(memory_format=ch.channels_last, non_blocking=True)
+            y = y.to(device='cuda', non_blocking=True)
+
             assert train_loader is not None, 'need to define train loader!'
             with ch.cuda.amp.autocast():
                 data_checks(x, y) # you should not get an error here!
