@@ -1,19 +1,26 @@
 import torch as ch
 import numpy as np
+from tqdm.auto import tqdm
 from pathlib import Path
+import sys
+
+assert sys.version_info.major == 3 and sys.version_info.minor >= 9, 'need python 3.9+'
 
 # TODO remove these
 from torch.utils.data import DataLoader
 from torchvision.datasets import ImageFolder
+import torchvision.transforms as transforms
 
 '''
 '''
 PLACES_DATASET = Path('/mnt/cfs/datasets/places365_standard')
-LR = 0.4
-EPOCHS = 3
+LR = 1.0
+EPOCHS = 2
 WD = 0
 BS = 256
 NUM_CLASSES = 365
+
+DEBUG_MODE = 0
 
 def make_model():
     model = ch.hub.load('pytorch/vision:v0.10.0', 'resnet18', pretrained=True)
@@ -25,11 +32,17 @@ def make_model():
     model = model.cuda().to(memory_format=ch.channels_last)
     return model
 
+def data_postprocess(x, y):
+    x = x.to(device='cuda', non_blocking=True)
+    x = x.to(memory_format=ch.channels_last, non_blocking=True)
+    y = y.to(device='cuda', non_blocking=True)
+    return x, y
+
 def data_checks(x, y):
-    assert x.shape == (BS, 3, 224, 224) and x.dtype == ch.float16
-    assert y.shape == (BS,) and y.dtype == ch.int64
-    assert x.device != ch.device('cpu')
-    assert y.device != ch.device('cpu')
+    assert x.shape == (BS, 3, 224, 224), x.shape
+    assert y.shape == (BS,) and y.dtype == ch.int64, (y.shape, y.dtype)
+    assert x.device != ch.device('cpu'), x.device
+    assert y.device != ch.device('cpu'), y.device
 
 IMAGENET_MEAN = np.array([0.485, 0.456, 0.406])
 IMAGENET_STD = np.array([0.229, 0.224, 0.225])
@@ -63,6 +76,7 @@ def make_loaders():
     return train_loader, val_loader
 
 def main():
+     # Note: do not do anything fancy wrt data caching even tho we are doing final layer fine tuning
     model = make_model()
     model_params = model.fc.parameters()
     optimizer = ch.optim.SGD(model_params, lr=LR, weight_decay=WD) 
@@ -70,7 +84,7 @@ def main():
 
     train_loader, val_loader = make_loaders()
     # half prec training
-    scaler = torch.cuda.amp.GradScaler()
+    scaler = ch.cuda.amp.GradScaler()
 
     # make scheduler
     num_iterations = len(train_loader) * EPOCHS
@@ -81,11 +95,8 @@ def main():
     for epoch in range(EPOCHS):
         # first train
         model.train()
-        for iteration, (x, y) in train_loader:
-            x = x.to(device='cuda', non_blocking=True)
-            x = x.to(memory_format=ch.channels_last, non_blocking=True)
-            y = y.to(device='cuda', non_blocking=True)
-
+        for iteration, (x, y) in enumerate(tqdm(train_loader)):
+            x, y = data_postprocess(x, y)
             assert train_loader is not None, 'need to define train loader!'
             with ch.cuda.amp.autocast():
                 data_checks(x, y) # you should not get an error here!
@@ -98,17 +109,26 @@ def main():
             scheduler.step()
             scaler.update()
 
+            if DEBUG_MODE and iteration > 2:
+                break
+
         # then test
         model.eval()
         all_corrects = []
-        for iteration, (x, y) in val_loader:
+        for iteration, (x, y) in enumerate(tqdm(val_loader)):
+            x, y = data_postprocess(x, y)
+            data_checks(x, y) # you should not get an error here!
             assert val_loader is not None, 'need to define val loader!'
             out = model(x)
             corrects = ch.argmax(out, dim=1) == y
             all_corrects.append(corrects)
 
-        acc1 = ch.cat(all_corrects).mean()
-        print('Accuract @ epoch {}: {}'.format(epoch, acc1))
+            if DEBUG_MODE and iteration > 2:
+                break
+
+        # all_corrects is bool; cast to 0/1 floats and take mean for accuracy
+        acc1 = ch.cat(all_corrects).float().mean()
+        print(f'Accuracy @ epoch {epoch}: {acc1}')
 
 if __name__ == '__main__':
     main()
