@@ -55,8 +55,6 @@ def get_target_transforms():
     train_ds = ImageFolder(root=PLACES_DATASET / 'train')
     val_ds = ImageFolder(root=PLACES_DATASET / 'val')
 
-    classes_to_idx = {cls: idx for idx, cls in enumerate(train_ds.classes)}
-
     def train_target_transform(x):
         return x
 
