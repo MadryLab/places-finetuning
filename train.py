@@ -114,7 +114,11 @@ def main():
     optimizer = ch.optim.SGD(model_params, lr=LR, weight_decay=WD) 
     losser = ch.nn.CrossEntropyLoss()
 
-    train_loader, val_loader = make_loaders()
+    # this will train with standard pytorch dataloader
+    # train_loader, val_loader = make_loaders() 
+    # TODO: fix this so that this script uses the proper dataloader
+    train_loader, val_loader = make_fast_loaders()
+
     # half prec training
     scaler = ch.cuda.amp.GradScaler()
 
