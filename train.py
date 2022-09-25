@@ -95,9 +95,6 @@ def make_loaders():
                 normalize,
         ]), target_transform=val_target_transform)
 
-    print(val_ds.classes)
-    print(train_ds.classes)
-
     train_loader = DataLoader(train_ds, batch_size=BS, shuffle=True,
                               drop_last=True, num_workers=5)
     val_loader = DataLoader(val_ds, batch_size=BS, shuffle=False,
