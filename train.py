@@ -15,10 +15,16 @@ if not PLACES_DATASET:
     raise NotImplementedError('Need to set PLACES_DATASET to the path of the Places365 dataset')
 
 LR = 0.1
-EPOCHS = 1
+EPOCHS = 2
 WD = 0
 BS = 256
 NUM_CLASSES = 365
+
+# you probably should set this to 1 if you are debugging the script
+
+DEBUG_MODE = 0
+if DEBUG_MODE:
+    EPOCHS = 1
 
 def make_model():
     model = ch.hub.load('pytorch/vision:v0.10.0', 'resnet18', pretrained=True)
@@ -116,7 +122,7 @@ def main():
 
     # this will train with standard pytorch dataloader
     # train_loader, val_loader = make_loaders() 
-    # TODO: fix this so that this script uses the proper dataloader
+    # TODO: fix this so that this script uses the proper dataloade
     train_loader, val_loader = make_fast_loaders()
 
     # half prec training
@@ -149,9 +155,6 @@ def main():
             scaler.step(optimizer)
             scheduler.step()
             scaler.update()
-
-            if iteration > 5:
-                break
 
         # then test
         model.eval()
